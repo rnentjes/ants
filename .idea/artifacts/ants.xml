@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="ants">
+    <output-path>$PROJECT_DIR$/out/artifacts/ants</output-path>
+    <root id="archive" name="ants.jar">
+      <element id="module-output" name="Ants" />
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/src/Manifest.mf" output-file-name="MANIFEST.MF" />
+      </element>
+    </root>
+  </artifact>
+</component>

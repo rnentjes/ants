@@ -32,7 +32,7 @@ public enum Ilk {
      * @return <code>true</code> if this is not a water tile, <code>false</code> otherwise
      */
     public boolean isPassable() {
-        return this.equals(LAND) || this.equals(DEAD) || this.equals(FOOD) || this.equals(MY_ANT) || this.equals(ENEMY_ANT);
+        return !this.equals(WATER);
     }
     
     /**

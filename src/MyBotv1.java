@@ -146,7 +146,7 @@ public class MyBotv1 extends Bot {
                     boolean done = false;
 
                     if (!done) {
-                        List<Tile> sortByLeastVisited = getNeighborsByLeastVisited(myAnt);
+                        List<Tile> sortByLeastVisited = getCandidatesSortedByLeastVisited(myAnt);
 
                         for (Tile targetedTile : sortByLeastVisited) {
                             Aim aim = getDirection(myAnt, targetedTile);
@@ -198,16 +198,6 @@ public class MyBotv1 extends Bot {
         time = System.currentTimeMillis() - time;
         debug("Turn "+turn+"/"+getAnts().getTurns()+" took - "+time+"/"+getAnts().getTurnTime());
 
-    }
-
-    private Aim getDirection(Tile t1, Tile t2) {
-        for (Aim aim : Aim.values()) {
-            if (getAnts().getTile(t1, aim).equals(t2)) {
-                return aim;
-            }
-        }
-
-        return null;
     }
 
     public void showStandingOrders() {

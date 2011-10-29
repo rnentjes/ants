@@ -4,23 +4,23 @@ import java.util.*;
 /**
  * Starter bot implementation.
  */
-public class MyBot extends Bot {
+public class MyBotd4 extends Bot {
     /**
      * Main method executed by the game engine for starting the bot.
      *
      * @param args command line arguments
-     * @throws IOException if an I/O error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             debug = true;
         }
 
-        MyBot bot = new MyBot();
+        MyBotd4 bot = new MyBotd4();
         bot.readSystemInput();
     }
 
-    public MyBot() {
+    public MyBotd4() {
         debug("Starting ");
     }
 

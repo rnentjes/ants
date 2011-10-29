@@ -4,23 +4,23 @@ import java.util.*;
 /**
  * Starter bot implementation.
  */
-public class MyBot extends Bot {
+public class MyBotd3 extends Bot {
     /**
      * Main method executed by the game engine for starting the bot.
      *
      * @param args command line arguments
-     * @throws IOException if an I/O error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             debug = true;
         }
 
-        MyBot bot = new MyBot();
+        MyBotd3 bot = new MyBotd3();
         bot.readSystemInput();
     }
 
-    public MyBot() {
+    public MyBotd3() {
         debug("Starting ");
     }
 
@@ -229,7 +229,7 @@ public class MyBot extends Bot {
         }*/
 
 
-        updateBorderMap(4);
+        updateBorderMap(3);
         if (debug) {
             debug(showBorderMap());
         }

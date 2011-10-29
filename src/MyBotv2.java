@@ -4,23 +4,23 @@ import java.util.*;
 /**
  * Starter bot implementation.
  */
-public class MyBot extends Bot {
+public class MyBotv2 extends Bot {
     /**
      * Main method executed by the game engine for starting the bot.
      *
      * @param args command line arguments
-     * @throws IOException if an I/O error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             debug = true;
         }
 
-        MyBot bot = new MyBot();
+        MyBotv2 bot = new MyBotv2();
         bot.readSystemInput();
     }
 
-    public MyBot() {
+    public MyBotv2() {
         debug("Starting ");
     }
 
@@ -190,7 +190,7 @@ public class MyBot extends Bot {
 
                 List<Tile> candidates = getCandidates(myAnt);
 
-                Collections.sort(candidates, new SortByMaps(visited, borders, 1, 10));
+                Collections.sort(candidates, new SortByMap(visited));
 
                 for (Tile targetedTile : candidates) {
                     Aim aim = getDirection(myAnt, targetedTile);
@@ -229,7 +229,7 @@ public class MyBot extends Bot {
         }*/
 
 
-        updateBorderMap(4);
+        updateBorderMapO2();
         if (debug) {
             debug(showBorderMap());
         }

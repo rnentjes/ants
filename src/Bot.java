@@ -37,16 +37,22 @@ public abstract class Bot extends AbstractSystemInputParser {
 
     protected Map<Tile, Integer> borders = new HashMap<Tile, Integer>();
     protected Map<Tile, Integer> visited = new HashMap<Tile, Integer>();
+    protected Map<Tile, Integer> avoidAnts = new HashMap<Tile, Integer>();
+    protected Map<Tile, Integer> attackAnts = new HashMap<Tile, Integer>();
+
     protected final static Random r = new Random(1);
 
     protected Map<Tile, List<Tile>> standingOrders = new HashMap<Tile, List<Tile>>();
     protected int viewDistance1 = 3;
+    protected int attackDistance1 = 3;
     protected int turn = 0;
     protected boolean init = false;
 
     protected List<Tile> targetedTiles = new LinkedList<Tile>();
     protected List<Tile> antsDone = new LinkedList<Tile>();
     protected List<Tile> remainingAnts = new LinkedList<Tile>();
+
+    protected List<Command> commands = new LinkedList<Command>();
 
     public void doTurn() {
         long time = System.currentTimeMillis();
@@ -57,8 +63,21 @@ public abstract class Bot extends AbstractSystemInputParser {
             targetedTiles = new LinkedList<Tile>();
             antsDone = new LinkedList<Tile>();
             remainingAnts = new LinkedList<Tile>();
+            avoidAnts = new HashMap<Tile, Integer>();
+            attackAnts = new HashMap<Tile, Integer>();
 
             doSubTurn();
+
+            /*
+            if (hasRemainingTime() && avoidAnts.size() > 0) {
+                debug("AVOID MAP:");
+                debug(showMap(avoidAnts));
+            }
+            if (hasRemainingTime() && attackAnts.size() > 0) {
+                debug("ATTACK MAP:");
+                debug(showMap(attackAnts));
+            }
+            */
         } catch (Exception t) {
             if (debug) {
                 t.printStackTrace(out);
@@ -68,7 +87,7 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
 
         if (debug) {
-            debug(showVisitedMap());
+            //debug(showVisitedMap());
         }
 
         time = System.currentTimeMillis() - time;
@@ -82,38 +101,60 @@ public abstract class Bot extends AbstractSystemInputParser {
         debug("Init");
 
         setViewDistance1();
+        setAttackDistance1();
 
         debug("Init done");
         //init = true;
+    }
+
+    protected void runCommands() {
+        List<Command> tmp = new LinkedList<Command>(commands);
+
+        for (Command command : tmp) {
+            debug("Command: " + command);
+            command.execute(this, getAnts());
+        }
+    }
+
+    protected void removeCommand(Command command) {
+        commands.remove(command);
+    }
+
+    protected void addCommand(Command command) {
+        commands.add(command);
     }
 
     protected boolean hasRemainingTime() {
         return getAnts().getTimeRemaining() > (getAnts().getTurnTime() / 10);
     }
 
+    protected boolean hasLittleRemainingTime() {
+        return getAnts().getTimeRemaining() > (getAnts().getTurnTime() / 20);
+    }
+
+    protected int colOffset = 0;
+    protected int rowOffset = 0;
     protected int currentCol = 0;
     protected int currentRow = 0;
     protected int currentDepth = 4;
     protected final int maxDepth = 4;
 
     protected void updateBorderMap(int value) {
-        int count = getAnts().getCols() * getAnts().getRows() * 2;
+        int count = (getAnts().getCols() * getAnts().getRows());
         currentRow = 0;
-        int step = 0;
+        currentCol = 0;
+        boolean done = false;
 
-        while (--count > 0 && hasRemainingTime()) {
+        //Map<Tile, Integer> target = new HashMap<Tile, Integer>();
+        //target.putAll(borders);
+
+        while (!done && hasLittleRemainingTime()) {
             Tile tile = new Tile(currentRow, currentCol);
 
-            if (step == 0) {
-                Ilk ilk = getAnts().getIlk(tile);
+            Ilk ilk = getAnts().getIlk(tile);
 
-                if (!ilk.isPassable()) {
-                    borders.put(tile, 9);
-                }
-            } else {
-                if (tileWithinViewRange(tile)) {
-                    setTileDependingonBorderingTiles(tile, value);
-                }
+            if (!ilk.isPassable()) {
+                borders.put(tile, 9);
             }
 
             currentCol++;
@@ -122,7 +163,36 @@ public abstract class Bot extends AbstractSystemInputParser {
                 currentRow++;
                 if (currentRow >= getAnts().getRows()) {
                     currentRow = 0;
-                    step++;
+                    done = true;
+                }
+            }
+        }
+
+        while (--count > 0 && hasLittleRemainingTime()) {
+            int row = (currentRow + rowOffset) % getAnts().getRows();
+            int col = (currentCol + colOffset) % getAnts().getCols();
+
+            Tile tile = new Tile(row, col);
+
+            if (tileWithinViewRange(tile)) {
+                setTileDependingonBorderingTiles(borders, tile, value);
+            }
+
+            currentCol += 3;
+            if (currentCol >= getAnts().getCols()) {
+                currentCol = 0;
+                currentRow += 3;
+                if (currentRow >= getAnts().getRows()) {
+                    currentRow = 0;
+
+                    colOffset++;
+                    if (colOffset >= 3) {
+                        rowOffset++;
+                        colOffset = 0;
+                        if (rowOffset >= 3) {
+                            rowOffset = 0;
+                        }
+                    }
                 }
             }
         }
@@ -225,9 +295,12 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
     }
 
-    protected void setTileDependingonBorderingTiles(Tile tile, int depth) {
+    protected void setTileDependingonBorderingTiles(Map<Tile, Integer> target, Tile tile, int depth) {
         if (shouldSetBorder2(tile)) {
-            borders.put(tile, depth);
+            int distance = getWaterDistance(tile);
+            if (distance < 5) {
+                target.put(tile, 6 - distance);
+            }
         }
     }
 
@@ -327,6 +400,11 @@ public abstract class Bot extends AbstractSystemInputParser {
             borderPatternsToSet.add("110100111");
             borderPatternsToSet.add("110100000");
             borderPatternsToSet.add("000100110");
+
+            borderPatternsToSet.add("001001111");
+            borderPatternsToSet.add("111001001");
+            borderPatternsToSet.add("111100100");
+            borderPatternsToSet.add("100100111");
         }
 
         return borderPatternsToSet;
@@ -365,9 +443,47 @@ public abstract class Bot extends AbstractSystemInputParser {
 
         String pattern = getBorderPattern(tile);
 
-        debug("Tile "+tile+" - "+pattern);
-
         return getBorderPatternsToSet().contains(pattern);
+    }
+
+    protected int getWaterDistance(Tile tile) {
+        int distance = 1;
+        boolean found = false;
+
+        while (!found && distance < 5) {
+            for (Aim aim : Aim.values()) {
+                Tile t1 = tile;
+                Tile t2 = tile;
+                Aim aim2 = null;
+                switch (aim) {
+                    case NORTH:
+                        aim2 = Aim.EAST;
+                        break;
+                    case EAST:
+                        aim2 = Aim.SOUTH;
+                        break;
+                    case SOUTH:
+                        aim2 = Aim.WEST;
+                        break;
+                    case WEST:
+                        aim2 = Aim.NORTH;
+                        break;
+                }
+                for (int i = 0; i < distance; i++) {
+                    t1 = getAnts().getTile(t1, aim);
+                    t2 = getAnts().getTile(t2, aim);
+                    t2 = getAnts().getTile(t2, aim2);
+                }
+                if (!getAnts().getIlk(t1).isPassable() || !getAnts().getIlk(t2).isPassable()) {
+                    found = true;
+                    break;
+                }
+            }
+
+            distance++;
+        }
+
+        return distance;
     }
 
     protected void setViewDistance1() {
@@ -378,6 +494,16 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
 
         viewDistance1 = i;
+    }
+
+    protected void setAttackDistance1() {
+        int i = 2;
+
+        while (i * i < getAnts().getAttackRadius2()) {
+            i++;
+        }
+
+        attackDistance1 = i;
     }
 
     protected boolean goodOrder(Tile myAnt, Aim aim) {
@@ -392,11 +518,21 @@ public abstract class Bot extends AbstractSystemInputParser {
         return (!targetedTiles.contains(targetedTile) && ilk.isPassable() && !getAnts().getMyHills().contains(targetedTile));
     }
 
+    protected void executeOrder(Tile myAnt, Tile target) {
+        Aim aim = getDirection(myAnt, target);
+
+        executeOrder(myAnt, aim);
+    }
+
     protected void executeOrder(Tile myAnt, Aim aim) {
-        ants.issueOrder(myAnt, aim);
-        targetedTiles.add(getAnts().getTile(myAnt, aim));
-        antsDone.add(myAnt);
-        remainingAnts.remove(myAnt);
+        Tile target = getAnts().getTile(myAnt, aim);
+
+        if (!targetedTiles.contains(target)) {
+            ants.issueOrder(myAnt, aim);
+            targetedTiles.add(getAnts().getTile(myAnt, aim));
+            antsDone.add(myAnt);
+            remainingAnts.remove(myAnt);
+        }
 
         //adjust visited test
         /*
@@ -415,6 +551,22 @@ public abstract class Bot extends AbstractSystemInputParser {
                 decVisited(getAnts().getTile(target, Aim.WEST));
                 break;
         }*/
+    }
+
+    protected int getAntsDefendingHill(Tile hill) {
+        int result = 0;
+
+        for (Command command : commands) {
+            if (command instanceof Defend) {
+                Defend defend = (Defend) command;
+
+                if (defend.getHill().equals(hill)) {
+                    result++;
+                }
+            }
+        }
+
+        return result;
     }
 
     protected void incVisited(Tile tile) {
@@ -631,6 +783,52 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
     }
 
+    public static class SortBy4Maps implements Comparator<Tile> {
+        private Map<Tile, Integer> map1 = null;
+        private Map<Tile, Integer> map2 = null;
+        private Map<Tile, Integer> map3 = null;
+        private Map<Tile, Integer> map4 = null;
+        private int mult1 = 1;
+        private int mult2 = 1;
+        private int mult3 = 1;
+        private int mult4 = 1;
+
+        public SortBy4Maps(Map<Tile, Integer> map1, Map<Tile, Integer> map2, Map<Tile, Integer> map3, Map<Tile, Integer> map4) {
+            this.map1 = map1;
+            this.map2 = map2;
+            this.map3 = map3;
+            this.map4 = map4;
+        }
+
+        public SortBy4Maps(Map<Tile, Integer> map1, Map<Tile, Integer> map2, Map<Tile, Integer> map3, Map<Tile, Integer> map4,
+                           int mult1, int mult2, int mult3, int mult4) {
+            this.map1 = map1;
+            this.map2 = map2;
+            this.map3 = map3;
+            this.map4 = map4;
+            this.mult1 = mult1;
+            this.mult2 = mult2;
+            this.mult3 = mult3;
+            this.mult4 = mult4;
+        }
+
+        public int compare(Tile o1, Tile o2) {
+            int c1 = getFromMap(map1, o1) * mult1 + getFromMap(map2, o1) * mult2 + getFromMap(map3, o1) * mult3 + getFromMap(map4, o1) * mult4;
+            int c2 = getFromMap(map1, o2) * mult1 + getFromMap(map2, o2) * mult2 + getFromMap(map3, o2) * mult3 + getFromMap(map4, o2) * mult4;
+
+            return c1 - c2;
+        }
+
+        private int getFromMap(Map<Tile, Integer> map, Tile tile) {
+            Integer result = map.get(tile);
+
+            if (result == null) {
+                result = 0;
+            }
+            return result;
+        }
+    }
+
     protected List<Tile> getCandidates(Tile tile) {
         Ants ants = getAnts();
 
@@ -724,7 +922,7 @@ public abstract class Bot extends AbstractSystemInputParser {
 
         //System.err.println("CD: "+currentDepth);
 
-        if (currentDepth > 100 || getAnts().getTimeRemaining() < 100) {
+        if (currentDepth > 15 || !hasRemainingTime()) {
             return result;
         }
 
@@ -766,7 +964,7 @@ public abstract class Bot extends AbstractSystemInputParser {
 
         //System.err.println("CD: "+currentDepth);
 
-        if (currentDepth > 25 || getAnts().getTimeRemaining() < 100) {
+        if (currentDepth > 15 || !hasRemainingTime()) {
             return result;
         }
 
@@ -790,11 +988,15 @@ public abstract class Bot extends AbstractSystemInputParser {
     }
 
     protected List<Tile> findShortestPathToOne(Map<Tile, Integer> visited, int currentDepth, List<Tile> t2) {
+        return findShortestPathToOne(visited, currentDepth, 25, t2);
+    }
+
+    protected List<Tile> findShortestPathToOne(Map<Tile, Integer> visited, int currentDepth, int maxDepth, List<Tile> t2) {
         List<Tile> result = new LinkedList<Tile>();
 
         //System.err.println("CD: "+currentDepth);
 
-        if (currentDepth > 25 || getAnts().getTimeRemaining() < 100) {
+        if (currentDepth > maxDepth || !hasRemainingTime()) {
             return result;
         }
 
@@ -814,7 +1016,7 @@ public abstract class Bot extends AbstractSystemInputParser {
             }
         }
 
-        return findShortestPathToOne(nextRound, ++currentDepth, t2);
+        return findShortestPathToOne(nextRound, ++currentDepth, maxDepth, t2);
     }
 
     protected List<Tile> getShortestPathFromMap(Map<Tile, Integer> visited, Tile t2) {
@@ -822,9 +1024,9 @@ public abstract class Bot extends AbstractSystemInputParser {
 
         result.add(t2);
         int step = 999999;
-        if (debug) {
-            debug(showMap(visited));
-        }
+//        if (debug) {
+//            debug(showMap(visited));
+//        }
 
         while (step != 0) {
             Tile target = null;
@@ -855,7 +1057,7 @@ public abstract class Bot extends AbstractSystemInputParser {
                 Tile tile = new Tile(rows, cols);
 
                 if (visited.get(tile) != null) {
-                    int value = visited.get(tile);
+                    int value = Math.abs(visited.get(tile));
 
                     while (value > 9) {
                         value -= 10;
@@ -1037,4 +1239,98 @@ public abstract class Bot extends AbstractSystemInputParser {
 
         return null;
     }
+
+    protected void avoid(Tile ant) {
+        Map<Tile, Integer> avoidMap = new HashMap<Tile, Integer>();
+        int currentDepth = (attackDistance1 * 3) / 2;
+
+        avoidMap.put(ant, currentDepth);
+
+        while (currentDepth > 1) {
+            Map<Tile, Integer> tmpMap = new HashMap<Tile, Integer>();
+
+            for (Tile tile : avoidMap.keySet()) {
+                if (avoidMap.get(tile).equals(currentDepth)) {
+                    for (Aim aim : Aim.values()) {
+                        Tile candidate = getAnts().getTile(tile, aim);
+
+                        if(!avoidMap.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
+                            tmpMap.put(candidate, (currentDepth - 1));
+                        }
+                    }
+                }
+            }
+            avoidMap.putAll(tmpMap);
+
+            currentDepth--;
+        }
+
+        avoidAnts.putAll(avoidMap);
+    }
+
+    protected void attack(Tile ant) {
+        Map<Tile, Integer> attackMap = new HashMap<Tile, Integer>();
+        int currentDepth = (viewDistance1 * 3) / 2;
+
+        attackMap.put(ant, -currentDepth);
+
+        while (currentDepth > 1) {
+            Map<Tile, Integer> tmpMap = new HashMap<Tile, Integer>();
+
+            for (Tile tile : attackMap.keySet()) {
+                if (attackMap.get(tile).equals(-currentDepth)) {
+                    for (Aim aim : Aim.values()) {
+                        Tile candidate = getAnts().getTile(tile, aim);
+
+                        if (!attackMap.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
+                            tmpMap.put(candidate, -(currentDepth - 1));
+                        }
+                    }
+                }
+            }
+
+            attackMap.putAll(tmpMap);
+
+            currentDepth--;
+        }
+
+        attackAnts.putAll(attackMap);
+    }
+
+    protected Map<Tile, Integer> mapDistance(Tile ant, int distance) {
+        Map<Tile, Integer> result = new HashMap<Tile, Integer>();
+        int currentDistance = 0;
+
+        for (Aim aim : Aim.values()) {
+            Tile target = ants.getTile(ant, aim);
+
+            if (ants.getIlk(target).isPassable()) {
+                result.put(target, currentDistance);
+            }
+        }
+
+        //result.put(ant, currentDistance);
+
+        while (currentDistance < distance) {
+            Map<Tile, Integer> tmpMap = new HashMap<Tile, Integer>();
+
+            for (Tile tile : result.keySet()) {
+                if (result.get(tile).equals(currentDistance)) {
+                    for (Aim aim : Aim.values()) {
+                        Tile candidate = getAnts().getTile(tile, aim);
+
+                        if(!result.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
+                            tmpMap.put(candidate, (currentDistance + 1));
+                        }
+                    }
+                }
+            }
+            result.putAll(tmpMap);
+
+            currentDistance++;
+        }
+
+        return result;
+    }
+
 }

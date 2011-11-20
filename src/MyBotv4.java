@@ -4,23 +4,23 @@ import java.util.*;
 /**
  * Starter bot implementation.
  */
-public class MyBot extends Bot {
+public class MyBotv4 extends Bot {
     /**
      * Main method executed by the game engine for starting the bot.
      *
      * @param args command line arguments
-     * @throws IOException if an I/O error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             debug = true;
         }
 
-        MyBot bot = new MyBot();
+        MyBotv4 bot = new MyBotv4();
         bot.readSystemInput();
     }
 
-    public MyBot() {
+    public MyBotv4() {
         debug("Starting ");
     }
 
@@ -180,7 +180,7 @@ public class MyBot extends Bot {
             if (hasRemainingTime()) {
                 boolean closeToHill = false;
                 for (Tile hill : ants.getMyHills()) {
-                    if (ants.getDistance(tile, hill) < ants.getViewRadius2() * 3) {
+                    if (ants.getDistance(tile, hill) < ants.getViewRadius2() * 2) {
                         closeToHill = true;
                         break;
                     }

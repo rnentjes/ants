@@ -1,0 +1,1 @@
+python tcpclient.py ants.fluxid.pl 2081 "./mybotd6.sh" Dispatch_d6 dipper 100

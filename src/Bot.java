@@ -39,6 +39,8 @@ public abstract class Bot extends AbstractSystemInputParser {
     protected Map<Tile, Integer> visited = new HashMap<Tile, Integer>();
     protected Map<Tile, Integer> avoidAnts = new HashMap<Tile, Integer>();
     protected Map<Tile, Integer> attackAnts = new HashMap<Tile, Integer>();
+    protected Map<Tile, Integer> foodTiles = new HashMap<Tile, Integer>();
+    protected Map<Tile, Integer> attackHills = new HashMap<Tile, Integer>();
 
     protected final static Random r = new Random(1);
 
@@ -65,6 +67,8 @@ public abstract class Bot extends AbstractSystemInputParser {
             remainingAnts = new LinkedList<Tile>();
             avoidAnts = new HashMap<Tile, Integer>();
             attackAnts = new HashMap<Tile, Integer>();
+            foodTiles = new HashMap<Tile, Integer>();
+            attackHills = new HashMap<Tile, Integer>();
 
             doSubTurn();
 
@@ -748,18 +752,18 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
     }
 
-    public static class SortByMaps implements Comparator<Tile> {
+    public static class SortBy2Maps implements Comparator<Tile> {
         private Map<Tile, Integer> map1 = null;
         private Map<Tile, Integer> map2 = null;
         private int mult1 = 1;
         private int mult2 = 1;
 
-        public SortByMaps(Map<Tile, Integer> map1, Map<Tile, Integer> map2) {
+        public SortBy2Maps(Map<Tile, Integer> map1, Map<Tile, Integer> map2) {
             this.map1 = map1;
             this.map2 = map2;
         }
 
-        public SortByMaps(Map<Tile, Integer> map1, Map<Tile, Integer> map2, int mult1, int mult2) {
+        public SortBy2Maps(Map<Tile, Integer> map1, Map<Tile, Integer> map2, int mult1, int mult2) {
             this.map1 = map1;
             this.map2 = map2;
             this.mult1 = mult1;
@@ -826,6 +830,76 @@ public abstract class Bot extends AbstractSystemInputParser {
                 result = 0;
             }
             return result;
+        }
+    }
+
+    public static class SortByMaps implements Comparator<Tile> {
+        private List<Map<Tile, Integer>> maps = new LinkedList<Map<Tile, Integer>>();
+        private List<Integer> multi = new LinkedList<Integer>();
+
+        public void addMap(Map<Tile, Integer> map, int mult) {
+            maps.add(map);
+            multi.add(mult);
+        }
+
+        public int compare(Tile o1, Tile o2) {
+            int c1 = 0;
+            int c2 = 0;
+
+            for (int index = 0; index < maps.size(); index++) {
+                c1 += getFromMap(maps.get(index), o1) * multi.get(index);
+                c2 += getFromMap(maps.get(index), o2) * multi.get(index);
+            }
+
+            return c1 - c2;
+        }
+
+        private int getFromMap(Map<Tile, Integer> map, Tile tile) {
+            Integer result = map.get(tile);
+
+            if (result == null) {
+                result = 0;
+            }
+            return result;
+        }
+
+        public String showMap(Ants ants) {
+            Map<Tile, Integer> totalMap = new HashMap<Tile, Integer>();
+
+            for (int index = 0; index < maps.size(); index++) {
+                Map<Tile, Integer> map = maps.get(index);
+                int mult = multi.get(index);
+
+                for (Tile key : map.keySet()) {
+                    totalMap.put(key, map.get(key) * mult);
+                }
+            }
+
+            StringBuilder result = new StringBuilder();
+
+            for (int rows = 0; rows < ants.getRows(); rows++) {
+                for (int cols = 0; cols < ants.getCols(); cols++) {
+                    Tile tile = new Tile(rows, cols);
+
+                    if (totalMap.get(tile) != null) {
+                        int value = Math.abs(totalMap.get(tile));
+
+                        if (value > 99) {
+                            result.append("**");
+                        } else {
+                            if (value < 10) {
+                                result.append("0");
+                            }
+                            result.append(value);
+                        }
+                    } else {
+                        result.append("..");
+                    }
+                }
+                result.append("\n");
+            }
+
+            return result.toString();
         }
     }
 
@@ -1242,7 +1316,7 @@ public abstract class Bot extends AbstractSystemInputParser {
 
     protected void avoid(Tile ant) {
         Map<Tile, Integer> avoidMap = new HashMap<Tile, Integer>();
-        int currentDepth = (attackDistance1 * 3) / 2;
+        int currentDepth = attackDistance1 + 2;
 
         avoidMap.put(ant, currentDepth);
 
@@ -1254,7 +1328,7 @@ public abstract class Bot extends AbstractSystemInputParser {
                     for (Aim aim : Aim.values()) {
                         Tile candidate = getAnts().getTile(tile, aim);
 
-                        if(!avoidMap.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
+                        if (!avoidMap.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
                             tmpMap.put(candidate, (currentDepth - 1));
                         }
                     }
@@ -1269,8 +1343,11 @@ public abstract class Bot extends AbstractSystemInputParser {
     }
 
     protected void attack(Tile ant) {
+        attack(ant, (viewDistance1 * 3) / 2);
+    }
+
+    protected void attack(Tile ant, int currentDepth) {
         Map<Tile, Integer> attackMap = new HashMap<Tile, Integer>();
-        int currentDepth = (viewDistance1 * 3) / 2;
 
         attackMap.put(ant, -currentDepth);
 
@@ -1297,6 +1374,48 @@ public abstract class Bot extends AbstractSystemInputParser {
         attackAnts.putAll(attackMap);
     }
 
+    protected void moveToFood(Tile ant) {
+        Map<Tile, Integer> attackMap = new HashMap<Tile, Integer>();
+
+        int delta = 0;
+        int currentDepth = 40;
+
+        attackMap.put(ant, -currentDepth);
+
+        while (currentDepth > 1) {
+            Map<Tile, Integer> tmpMap = new HashMap<Tile, Integer>();
+
+            for (Tile tile : attackMap.keySet()) {
+                if (attackMap.get(tile).equals(-currentDepth)) {
+                    for (Aim aim : Aim.values()) {
+                        Tile candidate = getAnts().getTile(tile, aim);
+
+                        if (!attackMap.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
+                            tmpMap.put(candidate, -(currentDepth - 1));
+
+                            if (ants.getMyAnts().contains(candidate)) {
+                                // done
+                                delta = currentDepth - 2;
+                                currentDepth = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            attackMap.putAll(tmpMap);
+
+            currentDepth--;
+        }
+
+        Map<Tile, Integer> finalMap = new HashMap<Tile, Integer>();
+        for (Tile tile : attackMap.keySet()) {
+            finalMap.put(tile, attackMap.get(tile) + delta);
+        }
+
+        foodTiles.putAll(finalMap);
+    }
+
     protected Map<Tile, Integer> mapDistance(Tile ant, int distance) {
         Map<Tile, Integer> result = new HashMap<Tile, Integer>();
         int currentDistance = 0;
@@ -1319,7 +1438,7 @@ public abstract class Bot extends AbstractSystemInputParser {
                     for (Aim aim : Aim.values()) {
                         Tile candidate = getAnts().getTile(tile, aim);
 
-                        if(!result.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
+                        if (!result.containsKey(candidate) && ants.getIlk(candidate).isPassable()) {
                             tmpMap.put(candidate, (currentDistance + 1));
                         }
                     }

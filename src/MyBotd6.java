@@ -190,7 +190,7 @@ public class MyBotd6 extends Bot {
 
                 List<Tile> candidates = getCandidates(myAnt);
 
-                Collections.sort(candidates, new SortByMaps(visited, borders, 1, 10));
+                Collections.sort(candidates, new SortBy2Maps(visited, borders, 1, 10));
 
                 for (Tile targetedTile : candidates) {
                     Aim aim = getDirection(myAnt, targetedTile);

@@ -28,6 +28,8 @@ public class MyBot extends Bot {
         this.debug = debug;
     }
 
+    Set<Tile> enemyHills = new HashSet<Tile>();
+
     /**
      * For every ant check every direction in fixed order (N, E, S, W) and move it if the tile is
      * passable.
@@ -61,6 +63,7 @@ public class MyBot extends Bot {
             }
         }
 
+        /*
         while (!foods.isEmpty() && hasRemainingTime()) {
             Tile food = foods.get(0);
 
@@ -89,43 +92,23 @@ public class MyBot extends Bot {
             } else {
                 foods.remove(food);
             }
+        }*/
+
+        for (Tile food : ants.getFoodTiles()) {
+            moveToFood(food);
+        }
+
+        for (Tile ant : ants.getMyAnts()) {
+            enemyHills.remove(ant);
         }
 
         for (Tile ehill : ants.getEnemyHills()) {
-            if (hasRemainingTime()) {
-                List<Tile> attackers = findAntsWithinViewingDistance(remainingAnts, ehill);
-
-                for (Tile ant : attackers) {
-                    List<Tile> path = findShortestPath(ant, ehill);
-
-                    if (path.size() > 1 && path.size() < ants.getViewRadius2()) {
-                        remainingAnts.remove(path.get(0));
-                        addCommand(new Move(path));
-                    }
-                }
-            }
+            enemyHills.add(ehill);
         }
 
-        List<Tile> enemys = new LinkedList<Tile>(ants.getEnemyAnts());
-
-        /* ----- */
-        /*
-        List<Tile> antsOnHill = new LinkedList<Tile>();
-
-        for (Tile tile : remainingAnts) {
-            if (ants.getMyHills().contains(tile)) {
-                antsOnHill.add(tile);
-            }
+        for (Tile ehill : enemyHills) {
+            attack(ehill, viewDistance1 * 4);
         }
-
-        if (ants.getMyAnts().size() > 10) {
-            for (Tile tile : antsOnHill) {
-                if (getAntsDefendingHill(tile) < (ants.getMyAnts().size() - 10) / 10) {
-                    debug("Ant "+tile+" defending "+tile);
-                    addCommand(new Defend(tile));
-                }
-            }
-        }*/
 
 
         /***************************************************************************/
@@ -133,46 +116,6 @@ public class MyBot extends Bot {
         runCommands();
 
         /***************************************************************************/
-
-        // find opportunities to kill
-
-/*
-        List<Tile> enemyAnts = new LinkedList<Tile>(ants.getEnemyAnts());
-        for (Tile en : ants.getEnemyAnts()) {
-            List<Tile> enemies = new LinkedList<Tile>(ants.getEnemyAnts());
-            List<Tile> friends = new LinkedList<Tile>();
-
-            enemies.add(en);
-            for (Tile fr : remainingAnts) {
-                if (ants.getDistance(en, fr) <= (ants.getAttackRadius2() + 5)) {
-                    friends.add(fr);
-                }
-
-                for (Tile en2 : enemyAnts) {
-                    if (ants.getDistance(en2, fr) <= (ants.getAttackRadius2() + 5) && !enemies.contains(en2)) {
-                        enemies.add(en2);
-                    }
-                }
-
-
-            }
-
-                if (!enemies.isEmpty() && !friends.isEmpty()) {
-                    debug("Running scenarios for " + friends + " & " + enemies);
-                    ScenarioRunner runner = new ScenarioRunner(this, ants, enemies, friends);
-
-                    Map<Tile, Aim> best = runner.findBestScenario();
-
-                    if (best != null) {
-                        debug("Executing scenario " + best);
-                        for (Tile ant : best.keySet()) {
-                            if (goodOrder(ant, best.get(ant))) {
-                                executeOrder(ant, best.get(ant));
-                            }
-                        }
-                    }
-                }
-        }*/
 
         // avoid & attack maps
 
@@ -187,7 +130,7 @@ public class MyBot extends Bot {
                 }
 
                 if (closeToHill) {
-                    attack(tile);
+                    attack(tile, viewDistance1 * 2);
                 } else {
                     avoid(tile);
                 }
@@ -202,12 +145,20 @@ public class MyBot extends Bot {
         debug("Moving " + antsToMove.size() + " ants around.");
         int attempts = antsToMove.size() * 2;
 
+        SortByMaps sort = new SortByMaps();
+
+        sort.addMap(visited, 1);
+        sort.addMap(borders, 4);
+        sort.addMap(foodTiles, 25);
+        sort.addMap(avoidAnts, 40);
+        sort.addMap(attackAnts, 60);
+
         while (!antsToMove.isEmpty() && hasLittleRemainingTime() && --attempts > 0) {
             Tile myAnt = antsToMove.remove(0);
 
             List<Tile> candidates = getCandidates(myAnt);
 
-            Collections.sort(candidates, new SortBy4Maps(visited, borders, avoidAnts, attackAnts, 1, 10, 30, 40));
+            Collections.sort(candidates, sort);
 
             for (Tile targetedTile : candidates) {
                 Aim aim = getDirection(myAnt, targetedTile);
@@ -227,9 +178,10 @@ public class MyBot extends Bot {
 
         /* ------------------------------------------------------------------------ */
 
-        updateBorderMap(4);
+        updateBorderMap(5);
         if (debug && hasLittleRemainingTime()) {
             //debug(showBorderMap());
+            debug(sort.showMap(ants));
         }
 
         debug("Remaining ants " + remainingAnts);

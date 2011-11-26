@@ -845,13 +845,20 @@ public abstract class Bot extends AbstractSystemInputParser {
         public int compare(Tile o1, Tile o2) {
             int c1 = 0;
             int c2 = 0;
+            int result = 0;
 
             for (int index = 0; index < maps.size(); index++) {
-                c1 += getFromMap(maps.get(index), o1) * multi.get(index);
-                c2 += getFromMap(maps.get(index), o2) * multi.get(index);
+                c1 = getFromMap(maps.get(index), o1);
+                c2 = getFromMap(maps.get(index), o2);
+
+                result = c1-c2;
+
+                if (result != 0) {
+                    break;
+                }
             }
 
-            return c1 - c2;
+            return result;
         }
 
         private int getFromMap(Map<Tile, Integer> map, Tile tile) {
@@ -1339,7 +1346,15 @@ public abstract class Bot extends AbstractSystemInputParser {
             currentDepth--;
         }
 
-        avoidAnts.putAll(avoidMap);
+        for (Tile t : avoidMap.keySet()) {
+            Integer i = avoidAnts.get(t);
+            if (i == null) {
+                i = 0;
+            }
+            i = i + avoidMap.get(t);
+
+            avoidAnts.put(t, i);
+        }
     }
 
     protected void attack(Tile ant) {
@@ -1371,7 +1386,15 @@ public abstract class Bot extends AbstractSystemInputParser {
             currentDepth--;
         }
 
-        attackAnts.putAll(attackMap);
+        for (Tile t : attackMap.keySet()) {
+            Integer i = attackAnts.get(t);
+            if (i == null) {
+                i = 0;
+            }
+            i = i + attackMap.get(t);
+
+            attackAnts.put(t, i);
+        }
     }
 
     protected void moveToFood(Tile ant) {
@@ -1413,7 +1436,16 @@ public abstract class Bot extends AbstractSystemInputParser {
             finalMap.put(tile, attackMap.get(tile) + delta);
         }
 
-        foodTiles.putAll(finalMap);
+//        foodTiles.putAll(finalMap);
+
+        for (Tile t : finalMap.keySet()) {
+            Integer i = foodTiles.get(t);
+            if (i == null || i == 0) {
+                foodTiles.put(t, finalMap.get(t));
+            } else {
+                foodTiles.put(t, i + finalMap.get(t));
+            }
+        }
     }
 
     protected Map<Tile, Integer> mapDistance(Tile ant, int distance) {

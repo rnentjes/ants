@@ -4,23 +4,23 @@ import java.util.*;
 /**
  * Starter bot implementation.
  */
-public class MyBot extends Bot {
+public class MyBotv5 extends Bot {
     /**
      * Main method executed by the game engine for starting the bot.
      *
      * @param args command line arguments
-     * @throws IOException if an I/O error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             debug = true;
         }
 
-        MyBot bot = new MyBot();
+        MyBotv5 bot = new MyBotv5();
         bot.readSystemInput();
     }
 
-    public MyBot() {
+    public MyBotv5() {
         debug("Starting ");
     }
 
@@ -97,28 +97,9 @@ public class MyBot extends Bot {
             }
         }*/
 
-        List<Tile> myAnts = new LinkedList<Tile>(remainingAnts);
-
-        for (Tile ma : myAnts) {
-            // find direction to food withing viewing range
-            HashMap<Tile, Integer> v = new HashMap<Tile, Integer>();
-            v.put(ma, 0);
-            List<Tile> route = findShortestPathToOne(v, 1, viewDistance1, new LinkedList<Tile>(ants.getFoodTiles()));
-
-            debug("Found route to food ("+ma+") "+route);
-
-            if (route.size() > 1) {
-                Aim aim = getDirection(ma, route.get(1));
-
-                if (goodOrder(ma, aim)) {
-                    executeOrder(ma, aim);
-                }
-            }
+        for (Tile food : ants.getFoodTiles()) {
+            moveToFood(food);
         }
-
-//        for (Tile food : ants.getFoodTiles()) {
-//            moveToFood(food);
-//        }
 
         for (Tile ant : ants.getMyAnts()) {
             enemyHills.remove(ant);

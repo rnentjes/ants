@@ -26,13 +26,13 @@ public class ScenarioRunner {
     public Scenario findBestScenarioOld() {
         Scenario best = null;
 
-        for (int scenarioNr = 0; scenarioNr < enemyAnts.size() * 4; scenarioNr++) {
+        for (int scenarioNr = 0; scenarioNr < enemyAnts.size() * 5 && bot.hasRemainingTime(); scenarioNr++) {
             int nr = scenarioNr;
             Map<Tile, Aim> targets = new HashMap<Tile, Aim>();
 
             boolean valid = true;
             for (Tile ant : enemyAnts) {
-                Aim aim = aims[nr & 3];
+                Aim aim = aims[nr % 5];
 
                 if (!bot.goodOrder(ant, aim)) {
                     // this scenario is not valid
@@ -40,16 +40,16 @@ public class ScenarioRunner {
                     break;
                 }
                 targets.put(ant, aim);
-                nr = nr >>> 2;
+                nr = nr / 5;
             }
 
             if (valid) {
-                for (int scenarioNr2 = 0; scenarioNr2 < friendlyAnts.size() * 4; scenarioNr2++) {
+                for (int scenarioNr2 = 0; scenarioNr2 < friendlyAnts.size() * 5 && bot.hasRemainingTime(); scenarioNr2++) {
                     int nr2 = scenarioNr2;
                     Map<Tile, Aim> friendlies = new HashMap<Tile, Aim>();
 
                     for (Tile ant : friendlyAnts) {
-                        Aim aim = aims[nr2 & 3];
+                        Aim aim = aims[nr2 % 5];
 
                         if (!bot.goodOrder(ant, aim)) {
                             // this scenario is not valid
@@ -57,7 +57,7 @@ public class ScenarioRunner {
                             break;
                         }
                         friendlies.put(ant, aim);
-                        nr2 = nr2 >>> 2;
+                        nr2 = nr2 / 5;
                     }
 
                     if (valid) {
@@ -78,36 +78,49 @@ public class ScenarioRunner {
 
     public Map<Tile, Aim> findBestScenario() {
         Map<Tile, Aim> best = null;
-        int bestKills = 0;
-        int bestLosses = 999;
 
-        for (int scenarioNr2 = 0; scenarioNr2 < friendlyAnts.size() * 4 && bot.hasRemainingTime(); scenarioNr2++) {
+        int bestKills = 0;
+        int bestLosses = 99999999;
+
+        int friendlyCount = 1;
+        int enemyCount = 1;
+
+        for (int index = 0; index < friendlyAnts.size(); index++) {
+            friendlyCount *= 5;
+        }
+
+        for (int index = 0; index < enemyAnts.size(); index++) {
+            enemyCount *= 5;
+        }
+
+        for (int scenarioNr2 = 0; scenarioNr2 < friendlyCount && bot.hasRemainingTime(); scenarioNr2++) {
             boolean valid = true;
             int nr2 = scenarioNr2;
             Map<Tile, Aim> friendlies = new HashMap<Tile, Aim>();
 
             for (Tile ant : friendlyAnts) {
-                Aim aim = aims[nr2 & 3];
+                Aim aim = aims[nr2 % 5];
 
                 if (!bot.goodOrder(ant, aim)) {
                     // this scenario is not valid
                     valid = false;
                     break;
                 }
+                
                 friendlies.put(ant, aim);
-                nr2 = nr2 >>> 2;
+                nr2 = nr2 / 5;
             }
 
             if (valid) {
                 int totalKills = 0;
                 int totalLosses = 0;
 
-                for (int scenarioNr = 0; scenarioNr < enemyAnts.size() * 4 && bot.hasRemainingTime(); scenarioNr++) {
+                for (int scenarioNr = 0; scenarioNr < enemyCount && bot.hasRemainingTime(); scenarioNr++) {
                     int nr = scenarioNr;
                     Map<Tile, Aim> targets = new HashMap<Tile, Aim>();
 
                     for (Tile ant : enemyAnts) {
-                        Aim aim = aims[nr&3];
+                        Aim aim = aims[nr % 5];
 
                         Tile target = ants.getTile(ant, aim);
 
@@ -117,7 +130,7 @@ public class ScenarioRunner {
                             break;
                         }
                         targets.put(ant, aim);
-                        nr = nr >>> 2;
+                        nr = nr / 5;
                     }
 
                     if (valid) {
@@ -134,32 +147,33 @@ public class ScenarioRunner {
 
                 if (bestLosses > totalLosses) {
                     bestLosses = totalLosses;
+                    bestKills = totalKills;
                     best = friendlies;
-                } else if (bestLosses == totalLosses && totalKills >= bestKills) {
+                } else if (bestLosses == totalLosses && totalKills > bestKills) {
                     bestKills = totalKills;
                     best = friendlies;
                 }
             }
         }
 
-
-        if (bestKills == 0 && bestLosses == 0) {
+        //if (bestKills == 0 && bestLosses == 0) {
             // ignore resolution
-            best = null;
-        }
+        //    best = null;
+        //}
+
 
         return best;
     }
 
     public static void main(String[] args) {
-        Ants ants = new Ants(1000, 1000, 10, 10, 100, 49, 25, 16, 1);
+        Ants ants = new Ants(1000, 300000, 10, 10, 100, 49, 25, 16, 1);
 
         List<Tile> en = new LinkedList<Tile>();
         List<Tile> fr = new LinkedList<Tile>();
 
-        en.add(new Tile(3, 5));
-        fr.add(new Tile(7, 5));
-        fr.add(new Tile(7, 6));
+        en.add(new Tile(8, 5));
+        fr.add(new Tile(2, 5));
+        fr.add(new Tile(2, 6));
 
         MyBot bot = new MyBot();
         bot.setAnts(ants);

@@ -511,29 +511,40 @@ public abstract class Bot extends AbstractSystemInputParser {
     }
 
     protected boolean goodOrder(Tile myAnt, Aim aim) {
-        if (aim == null) {
-            return false;
-        }
-        Tile targetedTile = ants.getTile(myAnt, aim);
-        Ilk ilk = ants.getIlk(myAnt, aim);
+        Tile targetedTile = myAnt;
+        Ilk ilk = ants.getIlk(myAnt);
 
+        if (aim != null) {
+            targetedTile = ants.getTile(myAnt, aim);
+            ilk = ants.getIlk(myAnt, aim);
+        }
         //debug("goodOrder: "+targetedTile+"="+ilk+" -> "+!targetedTiles.contains(targetedTile)+" - "+ilk.isPassable()+" - "+ilk.isUnoccupied()+" - "+!getAnts().getMyHills().contains(targetedTile));
 
         return (!targetedTiles.contains(targetedTile) && ilk.isPassable() && !getAnts().getMyHills().contains(targetedTile));
     }
 
     protected void executeOrder(Tile myAnt, Tile target) {
-        Aim aim = getDirection(myAnt, target);
+        Aim aim = null;
+
+        if (!myAnt.equals(target)) {
+            aim = getDirection(myAnt, target);
+        }
 
         executeOrder(myAnt, aim);
     }
 
     protected void executeOrder(Tile myAnt, Aim aim) {
-        Tile target = getAnts().getTile(myAnt, aim);
+        Tile target = null;
+
+        if (aim != null) {
+            target = getAnts().getTile(myAnt, aim);
+        }
 
         if (!targetedTiles.contains(target)) {
-            ants.issueOrder(myAnt, aim);
-            targetedTiles.add(getAnts().getTile(myAnt, aim));
+            if (aim != null) {
+                ants.issueOrder(myAnt, aim);
+            }
+            targetedTiles.add(target);
             antsDone.add(myAnt);
             remainingAnts.remove(myAnt);
         }
@@ -833,6 +844,28 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
     }
 
+    public Map<Tile, Integer> addMaps(Map<Tile, Integer> map1, int multi1, Map<Tile, Integer> map2, int multi2) {
+        Map<Tile, Integer> result = new HashMap<Tile, Integer>();
+
+        for (Tile tile : map1.keySet()) {
+            result.put(tile, map1.get(tile)*multi1);
+        }
+
+        for (Tile tile : map2.keySet()) {
+            int total = 0;
+
+            if (result.get(tile) != null) {
+                total = result.get(tile);
+            }
+
+            total += map2.get(tile) * multi2;
+
+            result.put(tile, total);
+        }
+
+        return result;
+    }
+
     public static class SortByMaps implements Comparator<Tile> {
         private List<Map<Tile, Integer>> maps = new LinkedList<Map<Tile, Integer>>();
         private List<Integer> multi = new LinkedList<Integer>();
@@ -856,6 +889,10 @@ public abstract class Bot extends AbstractSystemInputParser {
                 if (result != 0) {
                     break;
                 }
+            }
+
+            if (result == 0) {
+                return (r.nextInt(3) - 1);
             }
 
             return result;
@@ -1322,8 +1359,11 @@ public abstract class Bot extends AbstractSystemInputParser {
     }
 
     protected void avoid(Tile ant) {
+        avoid(avoidAnts, attackDistance1 + 2, ant);
+    }
+
+    protected void avoid(Map<Tile, Integer> map, int currentDepth, Tile ant) {
         Map<Tile, Integer> avoidMap = new HashMap<Tile, Integer>();
-        int currentDepth = attackDistance1 + 2;
 
         avoidMap.put(ant, currentDepth);
 
@@ -1347,13 +1387,13 @@ public abstract class Bot extends AbstractSystemInputParser {
         }
 
         for (Tile t : avoidMap.keySet()) {
-            Integer i = avoidAnts.get(t);
+            Integer i = map.get(t);
             if (i == null) {
                 i = 0;
             }
             i = i + avoidMap.get(t);
 
-            avoidAnts.put(t, i);
+            map.put(t, i);
         }
     }
 
@@ -1389,9 +1429,11 @@ public abstract class Bot extends AbstractSystemInputParser {
         for (Tile t : attackMap.keySet()) {
             Integer i = attackAnts.get(t);
             if (i == null) {
-                i = 0;
+                i = attackMap.get(t);
             }
-            i = i + attackMap.get(t);
+//            else {
+//                i = Math.max(i, attackMap.get(t));
+//            }
 
             attackAnts.put(t, i);
         }

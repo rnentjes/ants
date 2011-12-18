@@ -4,23 +4,23 @@ import java.util.*;
 /**
  * Starter bot implementation.
  */
-public class MyBot extends Bot {
+public class MyBotv6 extends Bot {
     /**
      * Main method executed by the game engine for starting the bot.
      *
      * @param args command line arguments
-     * @throws IOException if an I/O error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             debug = true;
         }
 
-        MyBot bot = new MyBot();
+        MyBotv6 bot = new MyBotv6();
         bot.readSystemInput();
     }
 
-    public MyBot() {
+    public MyBotv6() {
         debug("Starting ");
     }
 
@@ -29,7 +29,6 @@ public class MyBot extends Bot {
     }
 
     Set<Tile> enemyHills = new HashSet<Tile>();
-    Set<Tile> foodTiles = new HashSet<Tile>();
 
     /**
      * For every ant check every direction in fixed order (N, E, S, W) and move it if the tile is
@@ -98,29 +97,21 @@ public class MyBot extends Bot {
             }
         }*/
 
-        // attack ants close to one of my hills
+        List<Tile> myAnts = new LinkedList<Tile>(remainingAnts);
 
-        for (Tile tile : ants.getEnemyAnts()) {
-            if (hasRemainingTime()) {
-                boolean closeToHill = false;
-                for (Tile hill : ants.getMyHills()) {
-                    if (ants.getDistance(tile, hill) < ants.getViewRadius2() * 3) {
-                        for (Tile myAnt : ants.getMyAnts()) {
-                            if (ants.getDistance(tile, myAnt) < ants.getViewRadius2() * 2) {
-                                List<Tile> route = findShortestPath(myAnt, tile);
+        for (Tile ma : myAnts) {
+            // find direction to food withing viewing range
+            HashMap<Tile, Integer> v = new HashMap<Tile, Integer>();
+            v.put(ma, 0);
+            List<Tile> route = findShortestPathToOne(v, 1, viewDistance1, new LinkedList<Tile>(ants.getFoodTiles()));
 
-                                debug("Found route to enemy (" + tile + ") " + route);
+            debug("Found route to food ("+ma+") "+route);
 
-                                if (route.size() > 1) {
-                                    Aim aim = getDirection(myAnt, route.get(1));
+            if (route.size() > 1) {
+                Aim aim = getDirection(ma, route.get(1));
 
-                                    if (goodOrder(myAnt, aim)) {
-                                        executeOrder(myAnt, aim);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                if (goodOrder(ma, aim)) {
+                    executeOrder(ma, aim);
                 }
             }
         }
@@ -131,88 +122,57 @@ public class MyBot extends Bot {
 
         for (Tile ant : ants.getMyAnts()) {
             enemyHills.remove(ant);
-            foodTiles.remove(ant);
         }
 
         for (Tile ehill : ants.getEnemyHills()) {
             enemyHills.add(ehill);
         }
 
-        for (Tile food : ants.getFoodTiles()) {
-            foodTiles.add(food);
-        }
-
         for (Tile ehill : enemyHills) {
             attack(ehill, viewDistance1 * 4);
         }
 
-//        for (Tile food : foodTiles) {
-//            attack(food, viewDistance1 * 2);
-//        }
-
 
         /***************************************************************************/
 
-        //runCommands();
+        runCommands();
 
         /***************************************************************************/
 
         // find opportunities to kill
 
+
         List<Tile> enemyAnts = new LinkedList<Tile>(ants.getEnemyAnts());
         for (Tile en : ants.getEnemyAnts()) {
-            if (hasRemainingTime()) {
-                List<Tile> enemies = new LinkedList<Tile>();
-                List<Tile> friends = new LinkedList<Tile>();
+            List<Tile> enemies = new LinkedList<Tile>(ants.getEnemyAnts());
+            List<Tile> friends = new LinkedList<Tile>();
 
-                enemies.add(en);
-                for (Tile fr : remainingAnts) {
-                    if (ants.getDistance(en, fr) <= (ants.getAttackRadius2() * 2)) {
-                        friends.add(fr);
-
-                        for (Tile en2 : enemyAnts) {
-                            if (ants.getDistance(en2, fr) <= (ants.getAttackRadius2() * 2) && !enemies.contains(en2)) {
-                                enemies.add(en2);
-                            }
-                        }
-                    }
+            enemies.add(en);
+            for (Tile fr : remainingAnts) {
+                if (ants.getDistance(en, fr) <= (ants.getAttackRadius2() + 5)) {
+                    friends.add(fr);
                 }
 
-                if (!enemies.isEmpty() && !friends.isEmpty()) {
-                    debug("Running scenarios for " + friends + " & " + enemies);
-                    ScenarioRunner runner = new ScenarioRunner(this, ants, enemies, friends);
-
-                    Map<Tile, Aim> best = runner.findBestScenario();
-
-                    if (best != null) {
-                        debug("Executing scenario " + best);
-                        for (Tile ant : best.keySet()) {
-                            if (goodOrder(ant, best.get(ant))) {
-                                executeOrder(ant, best.get(ant));
-                            }
-                        }
+                for (Tile en2 : enemyAnts) {
+                    if (ants.getDistance(en2, fr) <= (ants.getAttackRadius2() + 5) && !enemies.contains(en2)) {
+                        enemies.add(en2);
                     }
                 }
             }
-        }
 
-        // find food
+            if (!enemies.isEmpty() && !friends.isEmpty()) {
+                debug("Running scenarios for " + friends + " & " + enemies);
+                ScenarioRunner runner = new ScenarioRunner(this, ants, enemies, friends);
 
-        List<Tile> myAnts = new LinkedList<Tile>(remainingAnts);
+                Map<Tile, Aim> best = runner.findBestScenario();
 
-        for (Tile ma : myAnts) {
-            // find direction to food withing viewing range
-            HashMap<Tile, Integer> v = new HashMap<Tile, Integer>();
-            v.put(ma, 0);
-            List<Tile> route = findShortestPathToOne(v, 1, viewDistance1, new LinkedList<Tile>(foodTiles));
-
-            debug("Found route to food (" + ma + ") " + route);
-
-            if (route.size() > 1) {
-                Aim aim = getDirection(ma, route.get(1));
-
-                if (goodOrder(ma, aim)) {
-                    executeOrder(ma, aim);
+                if (best != null) {
+                    debug("Executing scenario " + best);
+                    for (Tile ant : best.keySet()) {
+                        if (goodOrder(ant, best.get(ant))) {
+                            executeOrder(ant, best.get(ant));
+                        }
+                    }
                 }
             }
         }
@@ -229,8 +189,8 @@ public class MyBot extends Bot {
                     }
                 }
 
-                if (closeToHill && ants.getMyAnts().size() > 4) {
-                    attack(tile, viewDistance1 * 3);
+                if (closeToHill) {
+                    attack(tile, viewDistance1 * 2);
                 } else {
                     avoid(tile);
                 }
@@ -249,11 +209,9 @@ public class MyBot extends Bot {
 
         sort.addMap(attackAnts, 32);
         sort.addMap(avoidAnts, 16);
-        //sort.addMap(foodTiles, 8);
-
-        Map<Tile, Integer> bordersAndVisited = addMaps(visited, 1, borders, 5);
-
-        sort.addMap(bordersAndVisited, 2);
+        sort.addMap(foodTiles, 8);
+        sort.addMap(visited, 2);
+        sort.addMap(borders, 4);
 
         while (!antsToMove.isEmpty() && hasLittleRemainingTime() && --attempts > 0) {
             Tile myAnt = antsToMove.remove(0);
@@ -280,10 +238,10 @@ public class MyBot extends Bot {
 
         /* ------------------------------------------------------------------------ */
 
-        updateBorderMap(4);
+        updateBorderMap(5);
         if (debug && hasLittleRemainingTime()) {
             //debug(showBorderMap());
-            //debug(sort.showMap(bordersAndVisited));
+            debug(sort.showMap(ants));
         }
 
         debug("Remaining ants " + remainingAnts);

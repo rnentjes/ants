@@ -25,7 +25,13 @@ public class Scenario implements Comparable<Scenario> {
 
     public void execute() {
         for (Tile ant : friendlyAnts.keySet()) {
-            bot.executeOrder(ant, friendlyAnts.get(ant));
+            if (friendlyAnts.get(ant) == null) {
+                bot.targetedTiles.add(ant);
+                bot.antsDone.add(ant);
+                bot.remainingAnts.remove(ant);
+            } else {
+                bot.executeOrder(ant, friendlyAnts.get(ant));
+            }
         }
     }
 
@@ -48,7 +54,7 @@ public class Scenario implements Comparable<Scenario> {
             Tile target = ants.getTile(tile, friendlyAnts.get(tile));
             int nr = 0;
             for (Tile ant : enemyAnts.keySet()) {
-            Tile target2 = ants.getTile(ant, enemyAnts.get(ant));
+                Tile target2 = ants.getTile(ant, enemyAnts.get(ant));
                 if (ants.getDistance(target, target2) <= ants.getAttackRadius2()) {
                     nr++;
                 }
@@ -57,7 +63,6 @@ public class Scenario implements Comparable<Scenario> {
         }
 
         for (Tile tile : enemyAnts.keySet()) {
-            int nr = 0;
             for (Tile ant : friendlyAnts.keySet()) {
                 if (closeBy.get(tile) >= closeBy.get(ant)) {
                     kills++;
@@ -66,7 +71,6 @@ public class Scenario implements Comparable<Scenario> {
         }
 
         for (Tile tile : friendlyAnts.keySet()) {
-            int nr = 0;
             for (Tile ant : enemyAnts.keySet()) {
                 if (closeBy.get(tile) >= closeBy.get(ant)) {
                     losses++;
